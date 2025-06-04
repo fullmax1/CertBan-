@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Certificado Bancario Profesional</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: #e6f0ff;
+      padding: 30px;
+      display: flex;
+      justify-content: center;
+    }
+    .container {
+      background: #000;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 2px 15px rgba(0, 0, 0, 0.3);
+      max-width: 520px;
+      width: 100%;
+      border: 3px solid #0096FF;
+    }
+    input {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 16px;
+      font-size: 15px;
+      font-weight: bold;
+      border-radius: 8px;
+      border: 1px solid #0096FF;
+      color: #fff;
+      background-color: #111;
+      box-sizing: border-box;
+    }
+    input::placeholder {
+      color: #ccc;
+      font-weight: bold;
+    }
+    button {
+      width: 100%;
+      padding: 14px;
+      background-color: #0096FF;
+      color: white;
+      font-weight: 700;
+      font-size: 15px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    button:hover {
+      background-color: #0072cc;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <input type="text" id="nombre" placeholder="Nombre completo" />
+    <input type="number" id="cedula" placeholder="Cédula" />
+    <input type="text" id="referencia" placeholder="Referencia de transferencia" />
+    <input type="text" id="valor" placeholder="$0,00" onfocus="quitarFormato(this)" onblur="formatearValor(this)" />
+    <button onclick="generarPDF()">Descargar Certificado PDF</button>
+  </div>
+
+  <script>
+    function quitarFormato(input) {
+      input.value = input.value.replace(/[^\d]/g, '');
+    }
+
+    function formatearValor(input) {
+      let raw = input.value.replace(/[^\d]/g, '');
+      if (raw.length > 0) {
+        let num = parseInt(raw, 10);
+        input.value = num.toLocaleString('es-CO', {
+          style: 'currency',
+          currency: 'COP',
+          minimumFractionDigits: 2
+        });
+      } else {
+        input.value = '';
+      }
+    }
+
+    async function generarPDF() {
+      const nombre = document.getElementById("nombre").value.trim();
+      const cedula = document.getElementById("cedula").value.trim();
+      const referencia = document.getElementById("referencia").value.trim();
+      const valor = document.getElementById("valor").value.trim();
+
+      if (!nombre || !cedula || !referencia || !valor) {
+        alert("Por favor completa todos los campos.");
+        return;
+      }
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ unit: 'mm', format: 'letter' });
+
+      const fecha = new Date();
+      fecha.setHours(fecha.getHours() + 3);
+      const fechaTexto = fecha.toLocaleDateString('es-CO', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+      }) + " " + fecha.toLocaleTimeString('es-CO');
+
+      const logo = await cargarImagenBase64('images.png');
+      const firma = await cargarImagenBase64('1.png');
+
+      doc.addImage(logo, 'PNG', 80, 10, 50, 20);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.setTextColor(0, 150, 255);
+      doc.text("CERTIFICADO DE TRANSFERENCIA BANCARIA", 105, 40, { align: "center" });
+
+      doc.setFontSize(13);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont('helvetica', 'bold');
+      doc.text("A quien corresponda:", 20, 55);
+
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'normal');
+      let y = 65;
+
+      function textoNegrita(parte1, parte2) {
+        doc.setFont('helvetica', 'normal');
+        const text1Width = doc.getTextWidth(parte1);
+        doc.text(parte1, 20, y);
+        doc.setFont('helvetica', 'bold');
+        doc.text(parte2, 20 + text1Width, y);
+        y += 7;
+      }
+
+      const parrafos = [
+        ["Por medio del presente documento, se certifica que el cliente ", nombre],
+        ["identificado con cédula de ciudadanía Nº ", cedula],
+        ["tiene en curso una transferencia de fondos realizada a través de la plataforma Nequi.", ""],
+        ["", ""],
+        ["Detalles de la transferencia:", ""],
+        ["• Número de referencia: ", referencia],
+        ["• Monto de la transferencia: ", valor],
+        ["• Fecha estimada de ejecución: ", fechaTexto],
+        ["", ""],
+        ["Este certificado tiene validez como constancia oficial de la operación bancaria.", ""],
+        ["El presente documento ha sido generado automáticamente y cuenta con la firma del representante autorizado.", ""],
+        ["Agradecemos su confianza en nuestros servicios.", ""]
+      ];
+
+      parrafos.forEach(p => {
+        if (p[1]) {
+          textoNegrita(p[0], p[1]);
+        } else {
+          const split = doc.splitTextToSize(p[0], 170);
+          doc.setFont('helvetica', 'normal');
+          doc.text(split, 20, y);
+          y += split.length * 7;
+        }
+      });
+
+      doc.addImage(firma, 'PNG', 85, y + 5, 40, 25);
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(11);
+      doc.text("J. Sebastián Rodríguez Gómez", 105, y + 35, { align: "center" });
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.text("Gerente de Servicios – Contact Center & BPO", 105, y + 42, { align: "center" });
+
+      y += 100; // Baja 10 cm antes del párrafo de contacto (ajustado de 50 a 100 mm)
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+
+      const textoContacto = `¿Tienes dudas? Llámanos y las resolvemos. En Bogotá (601) 343 0000, Medellín (604) 510 9000, Cali (602) 554 0505, Barranquilla (605) 361 8888, Bucaramanga (607) 697 2525, Cartagena (605) 693 4400, Resto del país 018000912345. Sede principal Carrera 48 # 26-85 Torre Norte. Medellín - Colombia.`;
+
+      const lineas = doc.splitTextToSize(textoContacto, 170);
+      const anchoPagina = doc.internal.pageSize.getWidth();
+
+      lineas.forEach(linea => {
+        doc.text(linea, anchoPagina / 2, y, { align: 'center' });
+        y += 4.5;
+      });
+
+      doc.save(`Certificado_${nombre.replace(/\s+/g, '_')}.pdf`);
+    }
+
+    function cargarImagenBase64(ruta) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = function () {
+          const canvas = document.createElement("canvas");
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL("image/png"));
+        };
+        img.onerror = () => reject(`No se pudo cargar la imagen: ${ruta}`);
+        img.src = ruta;
+      });
+    }
+  </script>
+</body>
+</html>
+
